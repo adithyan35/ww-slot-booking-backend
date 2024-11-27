@@ -2,9 +2,10 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const registrationRoutes = require('./routes/registrationRoutes');
 const loginRoutes = require('./routes/loginRoutes');
+require('dotenv').config(); 
 
 const app = express();
-const port = 8800;
+const port = process.env.SERVER_PORT;
 
 app.use(bodyParser.json());
 
