@@ -1,4 +1,5 @@
-Node.js Project Setup with MySQL Workbench and Postman
+**Node.js Project Setup with MySQL Workbench and Postman**
+
 This guide provides comprehensive instructions to set up a Node.js project with MySQL Workbench and test the API endpoints using Postman. Follow each step to ensure successful integration.
 
 Prerequisites
@@ -9,7 +10,7 @@ Administrator Access: Required for installing software.
 Postman Installed: For API testing.
 -----------------------------------------------------------------------------------------------------------------------------------
 
-Table of Contents
+**Table of Contents**
 
 Install Node.js
 Install MySQL Server
@@ -21,7 +22,8 @@ Creating and Testing APIs with Postman
 Troubleshooting
 
 -----------------------------------------------------------------------------------------------------------------
-1. Install Node.js
+**1. Install Node.js**
+
 Download the Node.js installer from the official website.
 Recommended Version: LTS (Long-Term Support).
 Run the installer:
@@ -32,7 +34,8 @@ Copy code
 node -v
 npm -v
 -----------------------------------------------------------------------------------------------------------
-2. Install MySQL Server
+**2. Install MySQL Server**
+
 Download MySQL Community Server from the MySQL website.
 During installation:
 Choose Server Only setup.
@@ -46,7 +49,7 @@ Copy code
 sudo service mysql start
 -------------------------------------------------------------------------------------------------------------
 
-3. Install MySQL Workbench
+**3. Install MySQL Workbench**
    
 Download MySQL Workbench from the MySQL Workbench website.
 Install and open MySQL Workbench.
@@ -65,7 +68,7 @@ Click Test Connection to verify.
 
 ------------------------------------------------------------------------
 
-4. Install Postman
+**4. Install Postman**
    
 Download Postman from the Postman website.
 Install and launch Postman.
@@ -74,7 +77,7 @@ Familiarize yourself with the interface for sending HTTP requests.
 
 ---------------------------------------------------------------------------
 
-5. Setting Up the MySQL Database
+**5. Setting Up the MySQL Database**
    
 Open MySQL Workbench and connect to the server.
 Create a new database:
@@ -109,7 +112,8 @@ INSERT INTO users (name, email) VALUES
 Note the database name (my_database) and the table (users).
 --------------------------------------------------------------------------------------
 
-6. Setting Up the Node.js Project
+**6. Setting Up the Node.js Project**
+
 Create a new directory:
 
 bash
@@ -130,7 +134,7 @@ Copy code
 npm install mysql2 express dotenv cros body-parser bcrypt crypto dotenv ejs jsonwebtoken nodemailer nodemon
 -----------------------------------------------------------------------------------------------------------
 
-7. Creating and Testing APIs with Postman
+**7. Creating and Testing APIs with Postman**
    
 Start the server:
 
@@ -177,7 +181,8 @@ Copy code
 ]
 ----------------------------------------------------------------------------------------------------------------
 
-8. Troubleshooting
+**8. Troubleshooting**
+
 Common Issues and Fixes
 Node.js Not Found:
 
