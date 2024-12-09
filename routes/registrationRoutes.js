@@ -1,10 +1,18 @@
 const express = require('express');
-const { registerUser } = require('../controllers/registration');
+const { registerUser, verifyOtp , sendOtp } = require('../controllers/registration');
+const { sendEmailOtp, verifyEmailOtp } = require('../controllers/emailverification');
 const router = express.Router();
 const db = require('../db');
 
 // Register route
 router.post('/register', registerUser);
+router.post('/verify-otp', verifyOtp);
+router.post('/send-otp', sendOtp);
+router.post('/send-email-otp', sendEmailOtp);
+router.post('/verify-email-otp', verifyEmailOtp);
+
+
+
 
 // Get user by username route (optional)
 router.get('/user/:username', (req, res) => {
