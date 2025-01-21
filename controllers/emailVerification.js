@@ -10,12 +10,36 @@ const emailOtpCache = new NodeCache({ stdTTL: 240 });
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.EMAIL_USER, // From .env
-        pass: process.env.EMAIL_PASS, // From .env
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
     },
 });
 
-// Step 1: Generate and Send OTP for Email
+// Generate Numeric OTP
+function generateNumericOtp(length) {
+    return Array.from({ length }, () => Math.floor(Math.random() * 10)).join('');
+}
+
+// Format the email body professionally
+function formatEmail(email, otp) {
+    const currentDate = new Date().toLocaleString();
+    return `
+        Dear User,
+        
+        Thank you for initiating the verification process.
+        
+        Date: ${currentDate}
+        
+        Your OTP code is: **   ${otp}   **
+        
+        Please note that this OTP is valid for 4 minutes. Do not share this code with anyone for your security.
+        
+        Regards,
+        WillWare Technologies
+    `;
+}
+
+// Send OTP Email
 exports.sendEmailOtp = async (req, res) => {
     const { email } = req.body;
 
@@ -33,7 +57,7 @@ exports.sendEmailOtp = async (req, res) => {
     const checkQuery = `SELECT * FROM registration WHERE email = ?`;
     db.query(checkQuery, [email], (err, results) => {
         if (err) {
-            console.error('Database error while checking email:', err); // Log database errors
+            console.error('Database error:', err);
             return res.status(500).json({ error: 'Database error' });
         }
 
@@ -41,33 +65,30 @@ exports.sendEmailOtp = async (req, res) => {
             return res.status(400).json({ error: 'Email already exists. Try using a new email.' });
         }
 
-        // Generate unique OTP
-        const otp_code = otpGenerator.generate(6, { upperCase: false, specialChars: false });
+        // Generate OTP and store in cache
+        const otp = generateNumericOtp(6);
+        emailOtpCache.set(email, otp);
 
-        // Temporarily store OTP in memory
-        emailOtpCache.set(email, otp_code);
-
-        // Send OTP via email
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: email,
-            subject: 'Your OTP Code',
-            text: `Your OTP code is ${otp_code}. It is valid for 4 minutes.`,
+            subject: 'Your Email Verification Code',
+            text: formatEmail(email, otp),
         };
 
         transporter.sendMail(mailOptions, (error, info) => {
             if (error) {
-                console.error('Error sending email:', error); // Log email sending errors
-                return res.status(500).json({ error: 'Failed to send OTP email', details: error.message });
+                console.error('Error sending email:', error);
+                return res.status(500).json({ error: 'Failed to send OTP email' });
             }
 
-            console.log('Email sent: ' + info.response); // Log successful email sending
+            console.log('Email sent: ' + info.response);
             res.status(200).json({ message: 'OTP sent successfully to your email' });
         });
     });
 };
 
-// Step 2: Verify OTP for Email
+// Verify OTP
 exports.verifyEmailOtp = (req, res) => {
     const { email, otp } = req.body;
 
@@ -75,7 +96,6 @@ exports.verifyEmailOtp = (req, res) => {
         return res.status(400).json({ error: 'Email and OTP are required' });
     }
 
-    // Retrieve OTP from cache
     const cachedOtp = emailOtpCache.get(email);
 
     if (!cachedOtp) {
@@ -86,24 +106,20 @@ exports.verifyEmailOtp = (req, res) => {
         return res.status(400).json({ error: 'Invalid OTP' });
     }
 
-    // OTP is valid, delete it from cache
     emailOtpCache.del(email);
 
-    // Mark email as verified in the database
     const insertQuery = `
         INSERT INTO registration (email, is_verified, mobilenum) 
         VALUES (?, 1, NULL) 
         ON DUPLICATE KEY UPDATE is_verified = 1;
     `;
-    db.query(insertQuery, [email], (err, results) => {
+
+    db.query(insertQuery, [email], (err) => {
         if (err) {
-            console.error('Database error while inserting/updating email:', err);
-            return res.status(500).json({ error: 'Database error while verifying email', details: err.message });
+            console.error('Database error:', err);
+            return res.status(500).json({ error: 'Database error while verifying email' });
         }
 
-        console.log(`Email verified successfully: ${email}`);
-        res.status(200).json({ message: 'Email OTP verified successfully' });
+        res.status(200).json({ message: 'Email verified successfully' });
     });
 };
-
-

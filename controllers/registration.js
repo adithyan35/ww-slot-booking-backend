@@ -1,57 +1,58 @@
 const bcrypt = require('bcrypt');
 const db = require('../db');
-const otpGenerator = require('otp-generator');
 const NodeCache = require('node-cache');
+const jwt = require('jsonwebtoken');
 
-const otpCache = new NodeCache({ stdTTL: 60 }); // Store OTPs for 60 seconds
+const otpCache = new NodeCache({ stdTTL: 300 }); // OTP validity for 5 minutes
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
+
+// Custom function to generate numeric OTP
+function generateNumericOtp(length) {
+    let otp = '';
+    for (let i = 0; i < length; i++) {
+        otp += Math.floor(Math.random() * 10); // Generates a single digit (0-9)
+    }
+    return otp;
+}
 
 // Step 1: Generate and Send OTP
 exports.sendOtp = async (req, res) => {
-    const { mobilenum } = req.body;
+    const { mobilenum, email } = req.body;
 
-    if (!mobilenum) {
-        return res.status(400).json({ error: 'Mobile number is required' });
+    if (!mobilenum && !email) {
+        return res.status(400).json({ error: 'Either mobile number or email is required' });
     }
 
-    // Validate Indian mobile number format
-    const indianNumberRegex = /^\+91\d{10}$/;
-    if (!indianNumberRegex.test(mobilenum)) {
-        return res.status(400).json({ error: 'Invalid Indian mobile number. It must start with +91 and have 10 digits.' });
-    }
+    const identifier = mobilenum || email;
+    const identifierType = mobilenum ? 'mobilenum' : 'email';
 
-    // Check if mobile number already exists in the database
-    const checkQuery = `SELECT * FROM registration WHERE mobilenum = ?`;
-    db.query(checkQuery, [mobilenum], (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
+    const checkQuery = `SELECT * FROM registration WHERE ${identifierType} = ?`;
+    db.query(checkQuery, [identifier], (err, results) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (results.length > 0 && results[0].is_verified) {
+            return res.status(400).json({ error: `${identifierType === 'mobilenum' ? 'Mobile number' : 'Email'} already verified` });
         }
 
-        if (results.length > 0) {
-            return res.status(400).json({ error: 'Mobile number already exists. Try using a new number.' });
-        }
+        // Generate numeric OTP using custom function
+        const otp_code = generateNumericOtp(6); // 6-digit OTP
+        otpCache.set(identifier, otp_code);
+        console.log(`OTP for ${identifier}: ${otp_code}`); // For debugging
 
-        // Generate unique OTP
-        const otp_code = otpGenerator.generate(6, { upperCase: false, specialChars: false });
-
-        // Temporarily store OTP in memory
-        otpCache.set(mobilenum, otp_code);
-
-        // Simulate sending OTP
-        console.log(`OTP for ${mobilenum}: ${otp_code}`);
-
-        res.status(200).json({ message: 'OTP sent successfully' });
+        return res.status(200).json({ message: `OTP sent successfully to your ${identifierType}` });
     });
 };
 
+// Step 2: Verify OTP
 exports.verifyOtp = (req, res) => {
-    const { mobilenum, otp } = req.body;
+    const { mobilenum, email, otp } = req.body;
 
-    if (!mobilenum || !otp) {
-        return res.status(400).json({ error: 'Mobile number and OTP are required' });
+    if (!otp || (!mobilenum && !email)) {
+        return res.status(400).json({ error: 'OTP and either mobile number or email are required' });
     }
 
-    // Retrieve OTP from cache
-    const cachedOtp = otpCache.get(mobilenum);
+    const identifier = mobilenum || email;
+    const identifierType = mobilenum ? 'mobilenum' : 'email';
+    const cachedOtp = otpCache.get(identifier);
 
     if (!cachedOtp) {
         return res.status(400).json({ error: 'OTP expired or invalid' });
@@ -61,28 +62,17 @@ exports.verifyOtp = (req, res) => {
         return res.status(400).json({ error: 'Invalid OTP' });
     }
 
-    // OTP is valid, delete it from cache
-    otpCache.del(mobilenum);
+    otpCache.del(identifier); // Delete OTP after successful verification
 
-    // Mark mobile number as verified in the database
-    const insertQuery = `
-    INSERT INTO registration (mobilenum, is_verified) 
-    VALUES (?, 1) 
-    ON DUPLICATE KEY UPDATE is_verified = 1;
-`;
-db.query(insertQuery, [mobilenum], (err) => {
-    if (err) {
-        console.error('Error executing query:', err.message);
-        return res.status(500).json({ error: 'Database error while verifying mobile number' });
-    }
+    const updateQuery = `UPDATE registration SET is_verified = 1 WHERE ${identifierType} = ?`;
+    db.query(updateQuery, [identifier], (err) => {
+        if (err) return res.status(500).json({ error: 'Database error while verifying OTP' });
 
-    res.status(200).json({ message: 'OTP verified successfully' });
-});
-}
+        return res.status(200).json({ message: `${identifierType === 'mobilenum' ? 'Mobile number' : 'Email'} OTP verified successfully` });
+    });
+};
 
-
-
-// Step 3: Complete Registration
+// Step 3: Register User
 exports.registerUser = async (req, res) => {
     const { username, mobilenum, email, password, confirmpassword } = req.body;
 
@@ -94,18 +84,20 @@ exports.registerUser = async (req, res) => {
         return res.status(400).json({ error: 'Passwords do not match' });
     }
 
-    const checkQuery = `
-        SELECT is_verified 
-        FROM registration 
-        WHERE (mobilenum = ? OR email = ?) AND is_verified = 1
+    const verificationCheckQuery = `
+        SELECT is_verified, mobilenum, email
+        FROM registration
+        WHERE mobilenum = ? OR email = ?;
     `;
-    db.query(checkQuery, [mobilenum, email], async (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
 
-        if (results.length === 0) {
-            return res.status(400).json({ error: 'Neither mobile number nor email is verified' });
+    db.query(verificationCheckQuery, [mobilenum, email], async (err, results) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+
+        const isAnyVerified = results.some(row => row.is_verified === 1);
+        if (!isAnyVerified) {
+            return res.status(400).json({
+                error: `Registration not allowed. Please verify either mobile number or email OTP first.`,
+            });
         }
 
         try {
@@ -113,20 +105,22 @@ exports.registerUser = async (req, res) => {
             const hashedPassword = await bcrypt.hash(password, saltRounds);
 
             const updateQuery = `
-                UPDATE registration 
-                SET username = ?, email = ?, password = ?, mobilenum = ?
-                WHERE (mobilenum = ? OR email = ?);
+                UPDATE registration
+                SET username = ?, password = ?, email = ?, mobilenum = ?
+                WHERE mobilenum = ? OR email = ?;
             `;
-            db.query(updateQuery, [username, email, hashedPassword, mobilenum, mobilenum, email], (err) => {
-                if (err) {
-                    return res.status(500).json({ error: 'Registration failed' });
-                }
 
-                res.status(201).json({ message: 'User registered successfully' });
+            db.query(updateQuery, [username, hashedPassword, email, mobilenum, mobilenum, email], (err) => {
+                if (err) return res.status(500).json({ error: 'Registration failed' });
+
+                // Generate JWT Token after successful registration
+                const token = jwt.sign({ mobilenum, email, username }, JWT_SECRET, { expiresIn: '1h' });
+
+                return res.status(201).json({ message: 'User registered successfully', token });
             });
         } catch (error) {
             console.error('Error hashing password:', error);
-            res.status(500).json({ error: 'Internal server error' });
+            return res.status(500).json({ error: 'Internal server error' });
         }
     });
 };
