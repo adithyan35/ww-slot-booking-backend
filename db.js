@@ -13,10 +13,15 @@ const db = mysql.createConnection({
 
 db.connect((err) => {  
   if (err) {  
-    console.log('Error connecting to the database:', err.stack);  
+    console.error('Error connecting to the database:');
+    console.error('Host:', process.env.DB_HOST);
+    console.error('User:', process.env.DB_USER);
+    console.error('Database:', process.env.DB_NAME);
+    console.error('Port:', process.env.DB_PORT);
+    console.error('Error stack:', err.stack); 
     return;  
   }  
   console.log('Connected to the database as id ' + db.threadId);  
-});  
+});
 
 module.exports = db;  
