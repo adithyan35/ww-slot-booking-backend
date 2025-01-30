@@ -11,9 +11,6 @@ router.post('/send-otp', sendOtp);
 router.post('/send-email-otp', sendEmailOtp);
 router.post('/verify-email-otp', verifyEmailOtp);
 
-
-
-
 // Get user by username route (optional)
 router.get('/user/:username', (req, res) => {
   const { username } = req.params;
@@ -28,6 +25,17 @@ router.get('/user/:username', (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     res.status(200).json(results[0]);
+  });
+});
+
+router.get('/users', (req, res) => {
+  const query = 'SELECT * FROM registration';
+
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.status(200).json(results);
   });
 });
 

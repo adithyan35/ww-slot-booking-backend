@@ -2,6 +2,10 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const registrationRoutes = require('./routes/registrationRoutes');
 const loginRoutes = require('./routes/loginRoutes');
+const turfRoutes = require('./routes/turfRoutes');
+const courtRoutes = require("./routes/courtRoutes");
+const slotRoutes = require("./routes/slotRoutes");
+const bookingRoutes = require("./routes/bookingRoutes");
 const session = require('express-session');
 require('dotenv').config(); 
 
@@ -33,8 +37,15 @@ app.get('/test-session', (req, res) => {
 });
 
 // Routes
-app.use('/api', registrationRoutes);
-app.use('/api', loginRoutes);
+app.use('/wox', registrationRoutes);
+app.use('/wox', loginRoutes);
+app.use("/wox", courtRoutes);
+app.use("/wox", slotRoutes);
+app.use("/wox", bookingRoutes);
+app.use('/wox', turfRoutes);
+
+
+app.use("/uploads", express.static("uploads"));
 
 app.get('/', (req, res) => {
   res.send('Hello World! The database connection is successful.');
